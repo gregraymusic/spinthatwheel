@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Picker Wheel</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #1e1e24;
+            color: #e0e0e0;
+        }
+
+        /* Left Settings Sidebar */
+        #settings-sidebar {
+            width: 260px;
+            background: #121216;
+            color: #e0e0e0;
+            padding: 20px;
+            transition: margin-left 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            z-index: 10;
+            border-right: 1px solid #2d2d35;
+            flex-shrink: 0;
+        }
+
+        #settings-sidebar.collapsed {
+            margin-left: -260px;
+        }
+
+        #settings-sidebar h2, #entries-sidebar h2 {
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+            color: #ffffff;
+        }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .setting-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+
+        .setting-group input[type="range"] {
+            width: 100%;
+            accent-color: #3b82f6;
+            cursor: pointer;
+        }
+
+        /* Main Content Layout */
+        #main {
+            flex: 1;
+            display: flex;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .toggle-btn {
+            position: absolute;
+            top: 15px;
+            z-index: 20;
+            padding: 8px 14px;
+            background: #2d2d35;
+            color: white;
+            border: 1px solid #40404a;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toggle-btn:hover {
+            background: #3b82f6;
+        }
+
+        #toggle-settings {
+            left: 15px;
+        }
+
+        #toggle-entries {
+            right: 15px;
+        }
+
+        .wheel-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: 20px;
+            width: 100%;
+            height: 100%;
+        }
+
+        .wheel-wrapper {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            border-radius: 50%;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        /* Scalable SVG Pointer with Outline */
+        .pointer {
+            position: absolute;
+            right: clamp(-30px, -4vw, -20px);
+            top: 50%;
+            transform: translateY(-50%);
+            width: clamp(45px, 8vw, 75px);
+            height: clamp(35px, 6vw, 55px);
+            z-index: 12;
+            filter: drop-shadow(-3px 2px 6px rgba(0,0,0,0.6));
+            pointer-events: none;
+        }
+
+        .pointer svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Scalable Center Spin Button */
+        #spin-btn {
+            position: absolute;
+            background: #ffffff;
+            border: 4px solid #2d2d35;
+            border-radius: 50%;
+            font-weight: bold;
+            color: #1e1e24;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            z-index: 9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+            transition: transform 0.1s ease;
+        }
+
+        #spin-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* Right Collapsible Entries Sidebar */
+        #entries-sidebar {
+            width: 300px;
+            padding: 20px;
+            padding-top: 60px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: #16161a;
+            border-left: 1px solid #2d2d35;
+            transition: margin-right 0.3s ease;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        #entries-sidebar.collapsed {
+            margin-right: -300px;
+        }
+
+        .entries-header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .entries-header-bar label {
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        #clear-entries-btn {
+            background: #2a2a32;
+            color: #ef4444;
+            border: 1px solid #3d2a30;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        #clear-entries-btn:hover {
+            background: #ef4444;
+            color: #ffffff;
+            border-color: #ef4444;
+        }
+
+        textarea {
+            flex: 1;
+            padding: 12px;
+            background: #25252b;
+            color: #ffffff;
+            border: 1px solid #3b3b45;
+            border-radius: 6px;
+            resize: none;
+            font-size: 1rem;
+            line-height: 1.4;
+            outline: none;
+        }
+
+        textarea:focus {
+            border-color: #3b82f6;
+        }
+
+        /* Responsive & Scaled Winner Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background: #25252b;
+            padding: clamp(25px, 5vw, 50px);
+            border-radius: 16px;
+            text-align: center;
+            width: min(85vw, 680px);
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.7);
+            border: 1px solid #3b3b45;
+            overflow-y: auto;
+        }
+
+        .modal-content h3 {
+            margin-bottom: 16px;
+            font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+            color: #3b82f6;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .modal-content #winner-name {
+            font-size: clamp(2.2rem, 5vw, 3.8rem);
+            font-weight: bold;
+            margin-bottom: 32px;
+            color: #ffffff;
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+            line-height: 1.2;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .modal-buttons button {
+            padding: clamp(10px, 2vw, 16px) clamp(20px, 4vw, 36px);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: clamp(1rem, 2vw, 1.25rem);
+            transition: opacity 0.2s, transform 0.1s;
+        }
+
+        .modal-buttons button:hover {
+            opacity: 0.9;
+        }
+
+        .modal-buttons button:active {
+            transform: scale(0.96);
+        }
+
+        #keep-btn {
+            background: #10b981;
+            color: white;
+        }
+
+        #remove-btn {
+            background: #ef4444;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Collapsible Settings Sidebar -->
+    <div id="settings-sidebar">
+        <h2>Settings</h2>
+        <div class="setting-group">
+            <div class="setting-header">
+                <label for="speed">Wheel Speed</label>
+                <span id="speed-val">4 revs</span>
+            </div>
+            <input type="range" id="speed" min="1" max="4" value="4">
+        </div>
+        <div class="setting-group">
+            <div class="setting-header">
+                <label for="duration">Spin Duration</label>
+                <span id="duration-val">4s</span>
+            </div>
+            <input type="range" id="duration" min="1" max="10" value="4" step="0.5">
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="main">
+        <button id="toggle-settings" class="toggle-btn">⚙ Settings</button>
+        <button id="toggle-entries" class="toggle-btn">☰ Entries</button>
+
+        <div class="wheel-container" id="wheel-container">
+            <div class="wheel-wrapper" id="wheel-wrapper">
+                <div class="pointer">
+                    <svg viewBox="0 0 100 80" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M 90 10 L 10 40 L 90 70 Z" 
+                              fill="#ffffff" 
+                              stroke="#1e1e24" 
+                              stroke-width="8" 
+                              stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <button id="spin-btn">SPIN</button>
+                <canvas id="wheel"></canvas>
+            </div>
+        </div>
+
+        <!-- Collapsible Entries Sidebar -->
+        <div id="entries-sidebar">
+            <div class="entries-header-bar">
+                <label for="items-input">Entries:</label>
+                <button id="clear-entries-btn">Clear All</button>
+            </div>
+            <textarea id="items-input">Option 1
+Option 2
+Option 3
+Option 4
+Option 5
+Option 6</textarea>
+        </div>
+    </div>
+
+    <!-- Winner Result Modal -->
+    <div class="modal" id="result-modal">
+        <div class="modal-content">
+            <h3>We have a winner!</h3>
+            <div id="winner-name"></div>
+            <div class="modal-buttons">
+                <button id="remove-btn">Remove</button>
+                <button id="keep-btn">Keep</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('wheel');
+        const ctx = canvas.getContext('2d');
+        const wheelContainer = document.getElementById('wheel-container');
+        const wheelWrapper = document.getElementById('wheel-wrapper');
+        const itemsInput = document.getElementById('items-input');
+        const spinBtn = document.getElementById('spin-btn');
+        const clearEntriesBtn = document.getElementById('clear-entries-btn');
+        
+        const settingsSidebar = document.getElementById('settings-sidebar');
+        const toggleSettingsBtn = document.getElementById('toggle-settings');
+        
+        const entriesSidebar = document.getElementById('entries-sidebar');
+        const toggleEntriesBtn = document.getElementById('toggle-entries');
+        
+        const modal = document.getElementById('result-modal');
+        const winnerNameEl = document.getElementById('winner-name');
+        const keepBtn = document.getElementById('keep-btn');
+        const removeBtn = document.getElementById('remove-btn');
+
+        // Settings Controls
+        const speedInput = document.getElementById('speed');
+        const speedVal = document.getElementById('speed-val');
+        const durationInput = document.getElementById('duration');
+        const durationVal = document.getElementById('duration-val');
+
+        // Soft pastel palette
+        const colors = [
+            '#FFB3BA', // Soft Pastel Red / Pink
+            '#FFDFBA', // Pastel Peach
+            '#FFFFBA', // Pastel Yellow / Cream
+            '#BAFFC9', // Soft Mint Green
+            '#BAE1FF', // Powder Blue
+            '#E8AEFF'  // Soft Lavender
+        ];
+        
+        let currentAngle = 0;
+        let isSpinning = false;
+        let winningItemText = "";
+
+        // Web Audio Context
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Whimsical Sparkle Roll Sound
+        function playSpinningSound(durationSeconds) {
+            initAudio();
+
+            // High-pitched pentatonic scale frequencies (C6 pentatonic)
+            const sparkleScale = [1046.50, 1174.66, 1318.51, 1567.98, 1760.00, 2093.00];
+            const startTime = audioCtx.currentTime;
+            const noteInterval = 0.065;
+            const totalNotes = Math.floor(durationSeconds / noteInterval);
+
+            for (let i = 0; i < totalNotes; i++) {
+                const noteTime = startTime + (i * noteInterval);
+                const timeRemaining = (startTime + durationSeconds) - noteTime;
+
+                const freq = sparkleScale[Math.floor(Math.random() * sparkleScale.length)];
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, noteTime);
+
+                let maxVolume = 0.04; 
+                if (timeRemaining < 0.5) {
+                    maxVolume *= (timeRemaining / 0.5);
+                }
+
+                gain.gain.setValueAtTime(maxVolume, noteTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, noteTime + 0.08);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(noteTime);
+                osc.stop(noteTime + 0.08);
+            }
+        }
+
+        // Xylophone C Major Arpeggio Winner Sound (C5, E5, G5, C6)
+        function playWinnerSound() {
+            initAudio();
+
+            const notes = [523.25, 659.25, 783.99, 1046.50];
+            const noteDuration = 0.12; 
+
+            notes.forEach((freq, idx) => {
+                const startTime = audioCtx.currentTime + (idx * noteDuration);
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, startTime);
+
+                gain.gain.setValueAtTime(0.35, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(startTime);
+                osc.stop(startTime + 0.4);
+            });
+        }
+
+        function resizeCanvas() {
+            const padding = 60;
+            const availableWidth = wheelContainer.clientWidth - padding;
+            const availableHeight = wheelContainer.clientHeight - padding;
+            
+            const size = Math.max(150, Math.min(availableWidth, availableHeight));
+            
+            canvas.width = size;
+            canvas.height = size;
+            wheelWrapper.style.width = `${size}px`;
+            wheelWrapper.style.height = `${size}px`;
+
+            const btnSize = Math.max(65, Math.floor(size * 0.22));
+            spinBtn.style.width = `${btnSize}px`;
+            spinBtn.style.height = `${btnSize}px`;
+            spinBtn.style.fontSize = `${Math.max(0.85, btnSize / 70)}rem`;
+
+            drawWheel();
+        }
+
+        speedInput.addEventListener('input', (e) => {
+            speedVal.textContent = `${e.target.value} revs`;
+        });
+        
+        durationInput.addEventListener('input', (e) => {
+            durationVal.textContent = `${e.target.value}s`;
+        });
+
+        function getActiveItems() {
+            return itemsInput.value
+                .split('\n')
+                .map(item => item.trim())
+                .filter(item => item !== '' && !item.endsWith('~'));
+        }
+
+        function drawWheel() {
+            const items = getActiveItems();
+            const numSlices = items.length;
+            const radius = canvas.width / 2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (numSlices === 0) return;
+
+            const sliceAngle = (2 * Math.PI) / numSlices;
+
+            items.forEach((item, i) => {
+                const angle = currentAngle + i * sliceAngle;
+                
+                // Draw Slice
+                ctx.beginPath();
+                ctx.moveTo(radius, radius);
+                ctx.arc(radius, radius, radius, angle, angle + sliceAngle);
+                ctx.closePath();
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill();
+                ctx.strokeStyle = '#1e1e24';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw Text - Dark charcoal text for high legibility on pastel slices
+                ctx.save();
+                ctx.translate(radius, radius);
+                ctx.rotate(angle + sliceAngle / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = '#222226';
+                
+                const fontSize = Math.max(10, Math.floor(radius / 15));
+                ctx.font = `bold ${fontSize}px Arial`;
+                ctx.fillText(item.length > 18 ? item.substring(0, 15) + '...' : item, radius - 20, fontSize / 3);
+                ctx.restore();
+            });
+        }
+
+        function spin() {
+            if (isSpinning) return;
+            
+            const items = getActiveItems();
+            if (items.length === 0) return;
+
+            isSpinning = true;
+            
+            const speedSetting = parseFloat(speedInput.value);
+            const durationSetting = parseFloat(durationInput.value);
+            
+            const numSlices = items.length;
+            const sliceAngle = (2 * Math.PI) / numSlices;
+            
+            const targetSlice = Math.floor(Math.random() * numSlices);
+            const targetSliceCenterAngle = (targetSlice + 0.5) * sliceAngle;
+            
+            const currentNormalizedAngle = ((currentAngle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+            let angleToRotate = (currentNormalizedAngle + targetSliceCenterAngle) % (2 * Math.PI);
+            
+            const totalRotation = (speedSetting * 2 * Math.PI) + angleToRotate;
+            const startAngle = currentAngle;
+            const endAngle = startAngle - totalRotation; 
+
+            const startTime = performance.now();
+            const durationMs = durationSetting * 1000;
+
+            // Trigger whimsical sparkle sound
+            playSpinningSound(durationSetting);
+
+            function animate(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / durationMs, 1);
+                
+                const easeOut = 1 - Math.pow(1 - progress, 3);
+                
+                currentAngle = startAngle + (endAngle - startAngle) * easeOut;
+                drawWheel();
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    isSpinning = false;
+                    winningItemText = items[targetSlice];
+                    showResult(winningItemText);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        function showResult(winner) {
+            winnerNameEl.textContent = winner;
+            modal.style.display = 'flex';
+            playWinnerSound();
+        }
+
+        // Event Listeners
+        itemsInput.addEventListener('input', drawWheel);
+        spinBtn.addEventListener('click', spin);
+
+        clearEntriesBtn.addEventListener('click', () => {
+            itemsInput.value = '';
+            drawWheel();
+            itemsInput.focus();
+        });
+        
+        toggleSettingsBtn.addEventListener('click', () => {
+            settingsSidebar.classList.toggle('collapsed');
+            setTimeout(resizeCanvas, 305);
+        });
+
+        toggleEntriesBtn.addEventListener('click', () => {
+            entriesSidebar.classList.toggle('collapsed');
+            setTimeout(resizeCanvas, 305);
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+
+        keepBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+
+        removeBtn.addEventListener('click', () => {
+            if (winningItemText) {
+                const lines = itemsInput.value.split('\n');
+                
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].trim() === winningItemText) {
+                        lines[i] = lines[i] + '~';
+                        break;
+                    }
+                }
+                
+                itemsInput.value = lines.join('\n');
+                drawWheel();
+            }
+            modal.style.display = 'none';
+        });
+
+        // Initial setup
+        resizeCanvas();
+    </script>
+</body>
+</html>
