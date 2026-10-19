@@ -192,16 +192,32 @@
             color: #ffffff;
         }
 
-        #clear-entries-btn {
+        .entries-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .action-btn {
             background: #2a2a32;
-            color: #ef4444;
-            border: 1px solid #3d2a30;
+            color: #e0e0e0;
+            border: 1px solid #3d3d48;
             padding: 4px 10px;
             border-radius: 4px;
             font-size: 0.8rem;
             font-weight: bold;
             cursor: pointer;
-            transition: background 0.2s, border-color 0.2s;
+            transition: background 0.2s, border-color 0.2s, color 0.2s;
+        }
+
+        #reset-entries-btn:hover {
+            background: #3b82f6;
+            color: #ffffff;
+            border-color: #3b82f6;
+        }
+
+        #clear-entries-btn {
+            color: #ef4444;
+            border-color: #3d2a30;
         }
 
         #clear-entries-btn:hover {
@@ -319,16 +335,16 @@
         <div class="setting-group">
             <div class="setting-header">
                 <label for="speed">Wheel Speed</label>
-                <span id="speed-val">4 revs</span>
+                <span id="speed-val">2 revs</span>
             </div>
-            <input type="range" id="speed" min="1" max="4" value="4">
+            <input type="range" id="speed" min="1" max="4" value="2">
         </div>
         <div class="setting-group">
             <div class="setting-header">
                 <label for="duration">Spin Duration</label>
-                <span id="duration-val">4s</span>
+                <span id="duration-val">1s</span>
             </div>
-            <input type="range" id="duration" min="1" max="10" value="4" step="0.5">
+            <input type="range" id="duration" min="1" max="10" value="1" step="0.5">
         </div>
     </div>
 
@@ -357,7 +373,10 @@
         <div id="entries-sidebar">
             <div class="entries-header-bar">
                 <label for="items-input">Entries:</label>
-                <button id="clear-entries-btn">Clear All</button>
+                <div class="entries-actions">
+                    <button id="reset-entries-btn" class="action-btn">Reset</button>
+                    <button id="clear-entries-btn" class="action-btn">Clear All</button>
+                </div>
             </div>
             <textarea id="items-input">Option 1
 Option 2
@@ -387,6 +406,7 @@ Option 6</textarea>
         const wheelWrapper = document.getElementById('wheel-wrapper');
         const itemsInput = document.getElementById('items-input');
         const spinBtn = document.getElementById('spin-btn');
+        const resetEntriesBtn = document.getElementById('reset-entries-btn');
         const clearEntriesBtn = document.getElementById('clear-entries-btn');
         
         const settingsSidebar = document.getElementById('settings-sidebar');
@@ -630,6 +650,13 @@ Option 6</textarea>
         // Event Listeners
         itemsInput.addEventListener('input', drawWheel);
         spinBtn.addEventListener('click', spin);
+
+        resetEntriesBtn.addEventListener('click', () => {
+            const lines = itemsInput.value.split('\n');
+            const restoredLines = lines.map(line => line.replace(/~+$/, ''));
+            itemsInput.value = restoredLines.join('\n');
+            drawWheel();
+        });
 
         clearEntriesBtn.addEventListener('click', () => {
             itemsInput.value = '';
